@@ -94,4 +94,7 @@ func main() {
 	for scanner.Scan() {
 		go parseMsg(clnt, scanner.Bytes())
 	}
+
+	defer s.Close()
+	defer clnt.Close()
 }
