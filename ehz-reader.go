@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"os"
 	"time"
 
 	_ "github.com/influxdata/influxdb1-client"
@@ -77,12 +78,12 @@ func writePoints(clnt client.Client, fields *map[string]interface{}) {
 }
 
 func main() {
-	c := &serial.Config{Name: "/dev/ttyUSB0", Baud: 9600, ReadTimeout: time.Second * 3}
+	c := &serial.Config{Name: os.Getenv("SERIAL_PORT_NAME"), Baud: 9600, ReadTimeout: time.Second * 3}
 	s, err := serial.OpenPort(c)
 	if err != nil {
 		log.Fatal(err)
 	}
-	clnt, err := client.NewHTTPClient(client.HTTPConfig{Addr: "http://influxdb:8086"})
+	clnt, err := client.NewHTTPClient(client.HTTPConfig{Addr: os.Getenv("INFLUX_URL")})
 	if err != nil {
 		log.Fatal(err)
 	}
