@@ -8,9 +8,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/albenik/go-serial"
 	_ "github.com/influxdata/influxdb1-client"
 	client "github.com/influxdata/influxdb1-client/v2"
-	"github.com/tarm/serial"
 )
 
 type measurement struct {
@@ -78,16 +78,16 @@ func writePoints(clnt client.Client, fields *map[string]interface{}) {
 }
 
 func main() {
-	c := &serial.Config{Name: os.Getenv("SERIAL_PORT_NAME"), Baud: 9600, ReadTimeout: time.Second * 3}
-	s, err := serial.OpenPort(c)
+	port, err := serial.Open(os.Getenv("SERIAL_PORT_NAME"), serial.WithBaudrate(9600), serial.WithReadTimeout(3))
 	if err != nil {
+		log.Printf("Cannot open '%s'", os.Getenv("SERIAL_PORT_NAME"))
 		log.Fatal(err)
 	}
 	clnt, err := client.NewHTTPClient(client.HTTPConfig{Addr: os.Getenv("INFLUX_URL")})
 	if err != nil {
 		log.Fatal(err)
 	}
-	reader := bufio.NewReader(s)
+	reader := bufio.NewReader(port)
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 2048), 4*1024)
 	scanner.Split(splitMsg)
@@ -96,6 +96,6 @@ func main() {
 		go parseMsg(clnt, scanner.Bytes())
 	}
 
-	defer s.Close()
+	defer port.Close()
 	defer clnt.Close()
 }
