@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -80,8 +81,8 @@ func writePoints(clnt client.Client, fields *map[string]interface{}) {
 func main() {
 	port, err := serial.Open(os.Getenv("SERIAL_PORT_NAME"), serial.WithBaudrate(9600), serial.WithReadTimeout(3))
 	if err != nil {
-		log.Printf("Cannot open '%s'", os.Getenv("SERIAL_PORT_NAME"))
-		log.Fatal(err)
+		msg := fmt.Sprintf("Cannot open '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
+		log.Fatal(msg, err)
 	}
 	clnt, err := client.NewHTTPClient(client.HTTPConfig{Addr: os.Getenv("INFLUX_URL")})
 	if err != nil {
