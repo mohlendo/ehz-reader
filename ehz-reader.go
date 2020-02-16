@@ -86,7 +86,7 @@ func main() {
 		log.Fatal(msg, err)
 	}
 
-	influx, err := influxdb.New(os.Getenv("INFLUXDB_URL"), "", influxdb.WithUserAndPass(os.Getenv("INFLUXDB_USER"), os.Getenv("INFLUXDB_PASSWORD")))
+	influx, err := influxdb.New(os.Getenv("INFLUXDB_URL"), "")
 	if err != nil {
 		msg := fmt.Sprintf("Cannot reach influxdb '%s'", os.Getenv("INFLUXDB_URL"))
 		log.Fatal(msg, err)	
