@@ -8,10 +8,10 @@ import (
 	"log"
 	"os"
 	"time"
+	"context"
 
 	"github.com/albenik/go-serial"
-	_ "github.com/influxdata/influxdb1-client"
-	client "github.com/influxdata/influxdb1-client/v2"
+	influxdb "github.com/influxdata/influxdb-client-go"
 )
 
 type measurement struct {
@@ -42,7 +42,7 @@ func splitMsg(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
-func parseMsg( /*clnt client.Client, */ msg []byte) {
+func parseMsg(influx *influxdb.Client,  msg []byte) {
 	// log.Printf("%x\n", msg)
 	fields := make(map[string]interface{})
 	for _, m := range measurements {
@@ -60,44 +60,48 @@ func parseMsg( /*clnt client.Client, */ msg []byte) {
 		}
 	}
 	log.Printf("fields: %v", fields)
-	/*if len(fields) > 0 {
-		writePoints(clnt, &fields)
-	}*/
+	if len(fields) > 0 {
+		writePoints(influx, &fields, time.Now())
+	}
 }
 
-func writePoints(clnt client.Client, fields *map[string]interface{}) {
-	bp, _ := client.NewBatchPoints(client.BatchPointsConfig{Database: "home"})
-
-	// Create a point and add to batch
-	tags := map[string]string{"meter": "household"}
-	pt, _ := client.NewPoint("power_consumption", tags, *fields, time.Now())
-	bp.AddPoint(pt)
-
-	if err := clnt.Write(bp); err != nil {
+func writePoints(influx *influxdb.Client, fields *map[string]interface{}, ts time.Time) {
+	myMetrics := []influxdb.Metric{
+		influxdb.NewRowMetric(
+			*fields,
+			"power-consumption",
+			map[string]string{"meter": "household"}, ts),
+	}
+	
+	// The actual write..., this method can be called concurrently.
+	if _, err := influx.Write(context.Background(), "power-consumption", "ohlendorf.me", myMetrics...); err != nil {
 		log.Fatal("Error writing influx data", err)
 	}
 }
 
 func main() {
-	port, err := serial.Open(os.Getenv("SERIAL_PORT_NAME"), serial.WithBaudrate(9600), serial.WithReadTimeout(3))
+	port, err := serial.Open(os.Getenv("SERIAL_PORT_NAME"), serial.WithBaudrate(9600), serial.WithReadTimeout(-1))
 	if err != nil {
 		msg := fmt.Sprintf("Cannot open '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
 		log.Fatal(msg, err)
 	}
-	// clnt, err := client.NewHTTPClient(client.HTTPConfig{Addr: os.Getenv("INFLUX_URL")})
-	// if err != nil {
-	// 	msg := fmt.Sprintf("Cannot reach influxdb '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
-	// 	log.Fatal(msg, err)
-	// }
+
+	influx, err := influxdb.New(os.Getenv("INFLUXDB_URL"), "", influxdb.WithUserAndPass(os.Getenv("INFLUXDB_USER"), os.Getenv("INFLUXDB_PASSWORD")))
+	if err != nil {
+		msg := fmt.Sprintf("Cannot reach influxdb '%s'", os.Getenv("INFLUXDB_URL"))
+		log.Fatal(msg, err)	
+	}
+
 	reader := bufio.NewReader(port)
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 2048), 4*1024)
 	scanner.Split(splitMsg)
 
 	for scanner.Scan() {
-		go parseMsg( /*clnt,*/ scanner.Bytes())
+		parseMsg(influx, scanner.Bytes())
 	}
+	log.Print("Done")
 
 	defer port.Close()
-	// defer clnt.Close()
+	defer influx.Close()
 }
