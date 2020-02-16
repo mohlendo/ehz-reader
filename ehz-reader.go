@@ -74,7 +74,7 @@ func writePoints(clnt client.Client, fields *map[string]interface{}) {
 	bp.AddPoint(pt)
 
 	if err := clnt.Write(bp); err != nil {
-		log.Fatal(err)
+		log.Fatal("Error writing influx data", err)
 	}
 }
 
@@ -86,7 +86,8 @@ func main() {
 	}
 	clnt, err := client.NewHTTPClient(client.HTTPConfig{Addr: os.Getenv("INFLUX_URL")})
 	if err != nil {
-		log.Fatal(err)
+		msg := fmt.Sprintf("Cannot reach influxdb '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
+		log.Fatal(msg, err)
 	}
 	reader := bufio.NewReader(port)
 	scanner := bufio.NewScanner(reader)
