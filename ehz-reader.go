@@ -8,10 +8,10 @@ import (
 	"log"
 	"os"
 	"time"
-	"context"
 
 	"github.com/albenik/go-serial"
-	influxdb "github.com/influxdata/influxdb-client-go"
+	_ "github.com/influxdata/influxdb1-client" // this is important because of the bug in go mod
+	client "github.com/influxdata/influxdb1-client/v2"
 )
 
 type measurement struct {
@@ -42,7 +42,7 @@ func splitMsg(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
-func parseMsg(influx *influxdb.Client,  msg []byte) {
+func parseMsg(influx client.Client,  msg []byte) {
 	// log.Printf("%x\n", msg)
 	fields := make(map[string]interface{})
 	for _, m := range measurements {
@@ -65,16 +65,15 @@ func parseMsg(influx *influxdb.Client,  msg []byte) {
 	}
 }
 
-func writePoints(influx *influxdb.Client, fields *map[string]interface{}, ts time.Time) {
-	myMetrics := []influxdb.Metric{
-		influxdb.NewRowMetric(
-			*fields,
-			"power-consumption",
-			map[string]string{"meter": "household"}, ts),
-	}
-	
-	// The actual write..., this method can be called concurrently.
-	if _, err := influx.Write(context.Background(), "power-consumption", "ohlendorf.me", myMetrics...); err != nil {
+func writePoints(influx client.Client, fields *map[string]interface{}, ts time.Time) {
+	bp, _ := client.NewBatchPoints(client.BatchPointsConfig{Database: os.Getenv("INFLUXDB_DB")})
+
+	// Create a point and add to batch
+	tags := map[string]string{"meter": "household"}
+	pt, _ := client.NewPoint("power_consumption", tags, *fields, ts)
+	bp.AddPoint(pt)
+
+	if err := influx.Write(bp); err != nil {
 		log.Fatal("Error writing influx data", err)
 	}
 }
@@ -86,7 +85,9 @@ func main() {
 		log.Fatal(msg, err)
 	}
 
-	influx, err := influxdb.New(os.Getenv("INFLUXDB_URL"), "")
+	influx, err := client.NewHTTPClient(client.HTTPConfig{
+		Addr: os.Getenv("INFLUXDB_URL"),
+	})
 	if err != nil {
 		msg := fmt.Sprintf("Cannot reach influxdb '%s'", os.Getenv("INFLUXDB_URL"))
 		log.Fatal(msg, err)	
@@ -98,7 +99,7 @@ func main() {
 	scanner.Split(splitMsg)
 
 	for scanner.Scan() {
-		parseMsg(influx, scanner.Bytes())
+		go parseMsg(influx, scanner.Bytes())
 	}
 	log.Print("Done")
 
