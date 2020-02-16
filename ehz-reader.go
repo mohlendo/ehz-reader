@@ -42,7 +42,7 @@ func splitMsg(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
-func parseMsg(clnt client.Client, msg []byte) {
+func parseMsg( /*clnt client.Client, */ msg []byte) {
 	// log.Printf("%x\n", msg)
 	fields := make(map[string]interface{})
 	for _, m := range measurements {
@@ -60,9 +60,9 @@ func parseMsg(clnt client.Client, msg []byte) {
 		}
 	}
 	log.Printf("fields: %v", fields)
-	if len(fields) > 0 {
+	/*if len(fields) > 0 {
 		writePoints(clnt, &fields)
-	}
+	}*/
 }
 
 func writePoints(clnt client.Client, fields *map[string]interface{}) {
@@ -84,20 +84,20 @@ func main() {
 		msg := fmt.Sprintf("Cannot open '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
 		log.Fatal(msg, err)
 	}
-	clnt, err := client.NewHTTPClient(client.HTTPConfig{Addr: os.Getenv("INFLUX_URL")})
-	if err != nil {
-		msg := fmt.Sprintf("Cannot reach influxdb '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
-		log.Fatal(msg, err)
-	}
+	// clnt, err := client.NewHTTPClient(client.HTTPConfig{Addr: os.Getenv("INFLUX_URL")})
+	// if err != nil {
+	// 	msg := fmt.Sprintf("Cannot reach influxdb '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
+	// 	log.Fatal(msg, err)
+	// }
 	reader := bufio.NewReader(port)
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 2048), 4*1024)
 	scanner.Split(splitMsg)
 
 	for scanner.Scan() {
-		go parseMsg(clnt, scanner.Bytes())
+		go parseMsg( /*clnt,*/ scanner.Bytes())
 	}
 
 	defer port.Close()
-	defer clnt.Close()
+	// defer clnt.Close()
 }
