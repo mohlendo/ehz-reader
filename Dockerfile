@@ -16,6 +16,6 @@ RUN go install -v ./...
 
 FROM scratch
 
-COPY --from=builder /go/src/app/ehz-reader /go/bin/app
+COPY --from=builder /go/bin/app /go/bin/app
 
-CMD ["/go/bin/app"]
+ENTRYPOINT ["/go/bin/app"]
