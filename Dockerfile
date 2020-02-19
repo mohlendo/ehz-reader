@@ -18,4 +18,4 @@ FROM scratch
 
 COPY --from=builder /build/ehz-reader /go/bin/app
 
-ENTRYPOINT ["/go/bin/app"]
+CMD ["/go/bin/app"]
