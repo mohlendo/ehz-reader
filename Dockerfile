@@ -1,4 +1,4 @@
-FROM golang:alpine
+FROM golang:alpine AS builder
 
 ENV INFLUXDB_URL "http://influxdb:8086"
 ENV INFLUXDB_USERNAME "admin"
