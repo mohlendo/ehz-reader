@@ -7,15 +7,15 @@ ENV SERIAL_PORT_NAME "/dev/ttyUSB0"
 
 RUN apk add --no-cache git
 
-WORKDIR /build
+WORKDIR /go/src/app
 
 COPY . .
 
 RUN go get -d -v ./...
-RUN go build ./ehz-reader.go
+RUN go install -v ./...
 
 FROM scratch
 
-COPY --from=builder /build/ehz-reader /go/bin/app
+COPY --from=builder /go/src/app/ehz-reader /go/bin/app
 
 CMD ["/go/bin/app"]
