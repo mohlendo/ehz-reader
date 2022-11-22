@@ -79,7 +79,10 @@ func writePoints(influx client.Client, fields *map[string]interface{}, ts time.T
 }
 
 func main() {
-	port, err := serial.Open(os.Getenv("SERIAL_PORT_NAME"), serial.WithBaudrate(9600), serial.WithReadTimeout(-1))
+	mode := &serial.Mode{
+		BaudRate: 9600,
+	}
+	port, err := serial.Open(os.Getenv("SERIAL_PORT_NAME"), mode)
 	if err != nil {
 		msg := fmt.Sprintf("Cannot open '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
 		log.Fatal(msg, err)
@@ -90,7 +93,7 @@ func main() {
 	})
 	if err != nil {
 		msg := fmt.Sprintf("Cannot reach influxdb '%s'", os.Getenv("INFLUXDB_URL"))
-		log.Fatal(msg, err)	
+		log.Fatal(msg, err)
 	}
 
 	reader := bufio.NewReader(port)
