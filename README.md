@@ -1,6 +1,9 @@
 EHZ Reader
 ==========
 
+EHZ SML parser/reader to be used with IR opto heads (tested with ehz ISKRA MT681)
+
+
 ## How to tunnel usb port
 1. Host with USB connected
 
