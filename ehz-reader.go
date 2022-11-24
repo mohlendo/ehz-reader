@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/albenik/go-serial"
-	_ "github.com/influxdata/influxdb1-client" // this is important because of the bug in go mod
-	client "github.com/influxdata/influxdb1-client/v2"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 type measurement struct {
@@ -42,7 +41,7 @@ func splitMsg(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
-func parseMsg(influx client.Client,  msg []byte) {
+func parseMsg(client mqtt.Client,  msg []byte) {
 	// log.Printf("%x\n", msg)
 	fields := make(map[string]interface{})
 	for _, m := range measurements {
@@ -61,12 +60,16 @@ func parseMsg(influx client.Client,  msg []byte) {
 	}
 	log.Printf("fields: %v", fields)
 	if len(fields) > 0 {
-		writePoints(influx, &fields, time.Now())
+		writePoints(client, &fields, time.Now())
 	}
 }
 
-func writePoints(influx client.Client, fields *map[string]interface{}, ts time.Time) {
-	bp, _ := client.NewBatchPoints(client.BatchPointsConfig{Database: os.Getenv("INFLUXDB_DB")})
+func writePoints(client mqtt.Client, fields *map[string]interface{}, ts time.Time) {
+
+  token := client.Publish("topic/test", 0, false, "boing")
+  token.Wait()
+
+	/*bp, _ := client.NewBatchPoints(client.BatchPointsConfig{Database: os.Getenv("INFLUXDB_DB")})
 
 	// Create a point and add to batch
 	tags := map[string]string{"meter": "household"}
@@ -75,7 +78,15 @@ func writePoints(influx client.Client, fields *map[string]interface{}, ts time.T
 
 	if err := influx.Write(bp); err != nil {
 		log.Fatal("Error writing influx data", err)
-	}
+	}*/
+}
+
+var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
+	log.Printf("Connected")
+}
+
+var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
+	log.Printf("Connect lost: %v", err)
 }
 
 func main() {
@@ -88,12 +99,16 @@ func main() {
 		log.Fatal(msg, err)
 	}
 
-	influx, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr: os.Getenv("INFLUXDB_URL"),
-	})
-	if err != nil {
-		msg := fmt.Sprintf("Cannot reach influxdb '%s'", os.Getenv("INFLUXDB_URL"))
-		log.Fatal(msg, err)
+	opts := mqtt.NewClientOptions()
+  opts.AddBroker(os.Getenv("BROKER_URL"))
+  opts.SetClientID("ehz_reader")
+  opts.OnConnect = connectHandler
+  opts.OnConnectionLost = connectLostHandler
+  client := mqtt.NewClient(opts)
+
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		msg := fmt.Sprintf("Cannot reach broker '%s'", os.Getenv("BROKER_URL"))
+		log.Fatal(msg, token.Error())
 	}
 
 	reader := bufio.NewReader(port)
@@ -102,10 +117,9 @@ func main() {
 	scanner.Split(splitMsg)
 
 	for scanner.Scan() {
-		go parseMsg(influx, scanner.Bytes())
+		go parseMsg(client, scanner.Bytes())
 	}
 	log.Print("Done")
 
-	defer port.Close()
-	defer influx.Close()
+	defer client.Disconnect(250)
 }
