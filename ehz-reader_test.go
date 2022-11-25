@@ -1,18 +1,25 @@
 package main
 
 import (
+	"encoding/hex"
 	"testing"
 )
 
-func Test_main(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		// TODO: Add test cases.
+func Test_parseMsg(t *testing.T) {
+	data, err := hex.DecodeString("1B1B1B1B010101017605F12CAD07620062007263010176010102310B0A01445A47000282225E7262016505E748D7620263955C007605F22CAD07620062007263070177010B0A01445A47000282225E070100620AFFFF7262016505E748D77577070100603201010172620162006200520004445A470177070100600100FF017262016200620052000B0A01445A47000282225E0177070100010800FF641C01047262016200621E52FF65033C93890177070100020800FF017262016200621E52FF650FA49A9E0177070100100700FF017262016200621B52FE538B28010101636B99007605F32CAD076200620072630201710163D90C00001B1B1B1B1A01C3E1")
+	if err != nil {
+    	panic(err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			main()
-		})
-	}
+	
+	got := parseMsg(data)
+	want_power := 4.58423891e+8
+	want_total := 5.980609894746916e+14
+	
+	if got["power"] != want_power {
+        t.Errorf("got %v want %v", got["power"], want_power)
+    }
+    
+    if got["total"] != want_total {
+        t.Errorf("got %v want %v", got["total"], want_total)
+    }
 }

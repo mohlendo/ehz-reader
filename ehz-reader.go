@@ -42,7 +42,7 @@ func splitMsg(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
-func parseMsg(influx client.Client,  msg []byte) {
+func parseMsg(msg []byte) (map[string]interface{}){
 	// log.Printf("%x\n", msg)
 	fields := make(map[string]interface{})
 	for _, m := range measurements {
@@ -60,17 +60,15 @@ func parseMsg(influx client.Client,  msg []byte) {
 		}
 	}
 	log.Printf("fields: %v", fields)
-	if len(fields) > 0 {
-		writePoints(influx, &fields, time.Now())
-	}
+	return fields
 }
 
-func writePoints(influx client.Client, fields *map[string]interface{}, ts time.Time) {
+func writePoints(influx client.Client, fields map[string]interface{}, ts time.Time) {
 	bp, _ := client.NewBatchPoints(client.BatchPointsConfig{Database: os.Getenv("INFLUXDB_DB")})
 
 	// Create a point and add to batch
 	tags := map[string]string{"meter": "household"}
-	pt, _ := client.NewPoint("power_consumption", tags, *fields, ts)
+	pt, _ := client.NewPoint("power_consumption", tags, fields, ts)
 	bp.AddPoint(pt)
 
 	if err := influx.Write(bp); err != nil {
@@ -102,7 +100,10 @@ func main() {
 	scanner.Split(splitMsg)
 
 	for scanner.Scan() {
-		go parseMsg(influx, scanner.Bytes())
+		fields := parseMsg(scanner.Bytes())
+		if len(fields) > 0 {
+			go writePoints(influx, fields, time.Now())
+		}
 	}
 	log.Print("Done")
 

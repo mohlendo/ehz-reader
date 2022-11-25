@@ -6,6 +6,7 @@ WORKDIR $GOPATH/src/app
 
 COPY . .
 
+RUN go test
 RUN CGO_ENABLED=0 go build -ldflags="-w -s" -v
 
 FROM scratch
