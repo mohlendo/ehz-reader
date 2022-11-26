@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/albenik/go-serial"
+	"go.bug.st/serial"
 	_ "github.com/influxdata/influxdb1-client" // this is important because of the bug in go mod
 	client "github.com/influxdata/influxdb1-client/v2"
 )
@@ -59,7 +59,6 @@ func parseMsg(msg []byte) (map[string]interface{}){
 			fields[m.name] = value / m.divisor
 		}
 	}
-	log.Printf("fields: %v", fields)
 	return fields
 }
 
@@ -77,36 +76,46 @@ func writePoints(influx client.Client, fields map[string]interface{}, ts time.Ti
 }
 
 func main() {
+	serialPort, envPresent := os.LookupEnv("SERIAL_PORT_NAME")
+	if envPresent != true {
+		log.Fatal("Env var SERIAL_PORT_NAME not set.")
+	}
 	mode := &serial.Mode{
 		BaudRate: 9600,
 	}
-	port, err := serial.Open(os.Getenv("SERIAL_PORT_NAME"), mode)
+	port, err := serial.Open(serialPort, mode)
 	if err != nil {
-		msg := fmt.Sprintf("Cannot open '%s' - ", os.Getenv("SERIAL_PORT_NAME"))
+		msg := fmt.Sprintf("Cannot open '%s' - ", serialPort)
 		log.Fatal(msg, err)
 	}
-
-	influx, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr: os.Getenv("INFLUXDB_URL"),
-	})
-	if err != nil {
-		msg := fmt.Sprintf("Cannot reach influxdb '%s'", os.Getenv("INFLUXDB_URL"))
-		log.Fatal(msg, err)
+	defer port.Close()	
+	
+	var influx client.Client
+	influxUrl, envPresent := os.LookupEnv("INFLUXDB_URL")
+	if envPresent == true {
+ 		influx, err = client.NewHTTPClient(client.HTTPConfig{
+			Addr: influxUrl,
+		})
+		if err != nil {
+			msg := fmt.Sprintf("Cannot reach influxdb '%s'", influxUrl)
+			log.Fatal(msg, err)
+		}
+		defer influx.Close()				
 	}
 
-	reader := bufio.NewReader(port)
-	scanner := bufio.NewScanner(reader)
+	scanner := bufio.NewScanner(bufio.NewReader(port))
 	scanner.Buffer(make([]byte, 2048), 4*1024)
 	scanner.Split(splitMsg)
 
 	for scanner.Scan() {
 		fields := parseMsg(scanner.Bytes())
-		if len(fields) > 0 {
+		log.Printf("fields: %v", fields)		
+		if influx != nil && len(fields) > 0 {
 			go writePoints(influx, fields, time.Now())
 		}
 	}
+	if scanner.Err() != nil {
+        log.Fatal("Read from serial port aborted", scanner.Err())
+    }
 	log.Print("Done")
-
-	defer port.Close()
-	defer influx.Close()
 }
