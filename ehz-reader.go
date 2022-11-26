@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -85,8 +84,7 @@ func main() {
 	}
 	port, err := serial.Open(serialPort, mode)
 	if err != nil {
-		msg := fmt.Sprintf("Cannot open '%s' - ", serialPort)
-		log.Fatal(msg, err)
+		log.Fatalf("Cannot open '%s' - %v", serialPort , err)
 	}
 	defer port.Close()	
 	
@@ -97,8 +95,7 @@ func main() {
 			Addr: influxUrl,
 		})
 		if err != nil {
-			msg := fmt.Sprintf("Cannot reach influxdb '%s'", influxUrl)
-			log.Fatal(msg, err)
+			log.Fatalf("Cannot reach influxdb '%s' - %v", influxUrl, err)
 		}
 		defer influx.Close()				
 	}
@@ -115,7 +112,7 @@ func main() {
 		}
 	}
 	if scanner.Err() != nil {
-        log.Fatal("Read from serial port aborted", scanner.Err())
+        log.Fatalf("Read from serial port aborted - %v", scanner.Err())
     }
 	log.Print("Done")
 }
